@@ -1,0 +1,15 @@
+# Các thư mục thư viện (KHÔNG ĐƯỢC CHO LÊN)
+node_modules/
+dist/
+
+# File rác của hệ điều hành Mac
+.DS_Store
+
+# File môi trường bí mật
+.env
+.env.local
+
+# Các file log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

@@ -1,0 +1,28 @@
+@import "tailwindcss";
+html {
+    scrollbar-gutter: stable; /* Giữ layout cố định không bị nhảy */
+    overflow-y: overlay; /* Thanh cuộn nổi lên trên nội dung */
+}
+@media print {
+    /* Ép buộc trình duyệt ngắt trang hợp lý */
+    .page-break {
+        page-break-before: always;
+    }
+
+    /* Không cho phép ngắt ngang một dòng bảng hoặc một khối thông tin */
+    tr,
+    .resume-section {
+        page-break-inside: avoid !important;
+    }
+
+    /* Ẩn các thành phần không cần thiết khi in (như nút bấm) */
+    .no-print {
+        display: none !important;
+    }
+
+    /* Chỉnh lại lề giấy cho chuẩn A4 */
+    @page {
+        size: A4;
+        margin: 20mm 15mm;
+    }
+}
