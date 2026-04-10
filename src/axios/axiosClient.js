@@ -2,7 +2,7 @@
 import axios from "axios";
 
 const axiosClient = axios.create({
-    baseURL: "http://localhost:5276",
+    baseURL: "http://localhost:5277",
     headers: {
         "Content-Type": "application/json",
     },
@@ -27,6 +27,6 @@ axiosClient.interceptors.response.use(
             window.location.href = "/login";
         }
         return Promise.reject(error);
-    }
+    },
 );
 export default axiosClient;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
-import useStaffData from "../hooks/useStaffData"; // Đảm bảo đúng đường dẫn file hook
+import useStaffData from "../../hooks/useStaffData"; // Đảm bảo đúng đường dẫn file hook
 import {
     FaEdit,
     FaGraduationCap,
@@ -9,6 +9,7 @@ import {
     FaIdCard,
     FaMapMarkerAlt,
     FaUniversity,
+    FaMicroscope,
 } from "react-icons/fa";
 
 const Profile = () => {
@@ -16,12 +17,23 @@ const Profile = () => {
 
     // --- THAY ĐỔI QUAN TRỌNG NHẤT Ở ĐÂY ---
     // Gọi hook và lấy toàn bộ dữ liệu + trạng thái loading
-    const { staff, education, languages, employment, loading, error } =
-        useStaffData();
+    const {
+        staff,
+        education,
+        languages,
+        employment,
+        loading,
+        publications,
+        error,
+        researches,
+    } = useStaffData();
+    console.log(researches);
     const [openSections, setOpenSections] = useState({
         section1: true,
         section2: false,
         section3: false,
+        section4: false,
+        section5: true, // <--- Cho hiện mặc định hoặc ẩn tùy Trí
     });
 
     const toggleSection = (section) => {
@@ -29,6 +41,11 @@ const Profile = () => {
             ...prev,
             [section]: !prev[section],
         }));
+    };
+    const formatDate = (dateString) => {
+        if (!dateString) return "Nay";
+        const [year, month, day] = dateString.split("-");
+        return `${day}/${month}/${year}`;
     };
     if (loading)
         return (
@@ -44,12 +61,12 @@ const Profile = () => {
         );
 
     return (
-        <div className="max-w-6xl mx-auto my-10 px-4 font-sans text-slate-900">
+        <div className=" max-w-6xl mx-auto my-10 px-4 font-sans text-slate-900">
             {/* 1. HEADER */}
             {/* --- 1. HEADER - Toàn bộ phần Header (Thu nhỏ mb-8 thành mb-6) --- */}
-            <div className="relative bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6">
+            <div className=" relative bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6">
                 {/* Một chút màu sắc trang trí ở nền (Giảm chiều cao h-24 thành h-16) */}
-                <div className="absolute top-0 left-0 w-full h-16 bg-gradient-to-r from-blue-600 to-indigo-700 opacity-10 z-0"></div>
+                <div className=" absolute top-0 left-0 w-full h-16 bg-gradient-to-r from-blue-600 to-indigo-700 opacity-10 z-0"></div>
 
                 {/* Giảm padding (px-8 py-12 thành px-6 py-8) */}
                 <div className="relative px-6 py-8 flex flex-col md:flex-row items-center gap-6 z-10">
@@ -115,7 +132,10 @@ const Profile = () => {
                 >
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-8 gap-x-12">
                         <InfoBox label="Họ và tên" value={staff.fullName} />
-                        <InfoBox label="Ngày sinh" value={staff.dateOfBirth} />
+                        <InfoBox
+                            label="Ngày sinh"
+                            value={formatDate(staff.dateOfBirth)}
+                        />
                         <InfoBox label="Giới tính" value={staff.genderName} />
                         <InfoBox label="Nơi sinh" value={staff.placeOfBirth} />
                         <InfoBox label="Quê quán" value={staff.nativeVillage} />
@@ -144,7 +164,10 @@ const Profile = () => {
                             value={staff.degreeCountry}
                         />
                         <InfoBox label="Số CCCD" value={staff.cccdNumber} />
-                        <InfoBox label="Ngày cấp" value={staff.cccdDate} />
+                        <InfoBox
+                            label="Ngày cấp"
+                            value={formatDate(staff.cccdDate)}
+                        />
                         <InfoBox label="Nơi cấp" value={staff.cccdPlace} />
                         <InfoBox
                             label="Địa chỉ liên lạc"
@@ -283,7 +306,7 @@ const Profile = () => {
                                     <div className="w-24 md:w-32 flex-shrink-0 flex flex-col items-center">
                                         {/* Nhãn thời gian nổi bật */}
                                         <div className="text-[11px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
-                                            {item.fromDate}
+                                            {formatDate(item.fromDate)}
                                         </div>
                                         {/* Đường kẻ nối giữa các mốc */}
                                         <div className="w-0.5 h-full bg-slate-100 group-last:bg-transparent my-2"></div>
@@ -309,8 +332,9 @@ const Profile = () => {
                                                 <div className="flex flex-col items-end gap-2">
                                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
                                                         Đến:{" "}
-                                                        {item.toDate ||
-                                                            "Hiện tại"}
+                                                        {formatDate(
+                                                            item.toDate,
+                                                        ) || "Hiện tại"}
                                                     </span>
                                                 </div>
                                             </div>
@@ -337,6 +361,187 @@ const Profile = () => {
                                 </p>
                             </div>
                         )}
+                    </div>
+                </CardSection>
+                {/* PHẦN IV: QUÁ TRÌNH NGHIÊN CỨU KHOA HỌC */}
+                <CardSection
+                    title="IV. QUÁ TRÌNH NGHIÊN CỨU KHOA HỌC"
+                    icon={<FaMicroscope />}
+                    isOpen={openSections.section4}
+                    onToggle={() => toggleSection("section4")}
+                >
+                    <div className="space-y-12">
+                        {/* 1. Các đề tài nghiên cứu khoa học */}
+                        <div>
+                            <div className="flex items-center justify-between mb-6">
+                                <h4 className="text-blue-800 font-black text-sm mb-6 flex items-center gap-2 uppercase tracking-wider">
+                                    <div className="w-2 h-6 bg-blue-600 rounded-full"></div>
+                                    1. Các đề tài nghiên cứu khoa học đã và đang
+                                    tham gia
+                                </h4>
+                                <div className="flex items-center justify-between mb-6">
+                                    {researches?.length > 0 && (
+                                        <span className="text-[10px] font-black px-3 py-1.5 bg-blue-600 text-white rounded-xl shadow-sm shadow-blue-200 uppercase">
+                                            {researches.length} đề tài
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="space-y-6">
+                                {/* HEADER */}
+
+                                {/* LIST */}
+                                <div className="space-y-4">
+                                    {researches && researches.length > 0 ? (
+                                        researches.map((item, index) => (
+                                            <div
+                                                key={index}
+                                                className="flex gap-4 p-5 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md hover:border-blue-200 transition-all group"
+                                            >
+                                                {/* LEFT: STT + LINE */}
+                                                <div className="flex flex-col items-center w-12">
+                                                    <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
+                                                        {index + 1}
+                                                    </div>
+                                                    <div className="flex-1 w-[2px] bg-slate-100 mt-2"></div>
+                                                </div>
+
+                                                {/* RIGHT: CONTENT */}
+                                                <div className="flex-1 space-y-3">
+                                                    {/* TITLE + TIME */}
+                                                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                                                        <h5 className="text-base font-bold text-slate-800 group-hover:text-blue-700">
+                                                            {item.researchName}
+                                                        </h5>
+
+                                                        <span className="text-xs font-semibold px-3 py-1 bg-blue-50 text-blue-600 rounded-lg w-fit">
+                                                            {item.startYear} -{" "}
+                                                            {item.endYear ||
+                                                                "Nay"}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* INFO GRID */}
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                                        <div>
+                                                            <p className="text-slate-400 text-xs font-medium">
+                                                                Cấp đề tài
+                                                            </p>
+                                                            <p className="text-slate-700 font-semibold">
+                                                                {item.researchLevel ||
+                                                                    "Không rõ"}
+                                                            </p>
+                                                        </div>
+
+                                                        <div>
+                                                            <p className="text-slate-400 text-xs font-medium">
+                                                                Vai trò
+                                                            </p>
+                                                            <p className="flex items-center gap-2 text-blue-700 font-bold text-xs">
+                                                                {item.roleInResearchName ||
+                                                                    "Thành viên"}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="py-16 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                                            <p className="text-slate-400 italic">
+                                                Chưa có dữ liệu đề tài nghiên
+                                                cứu
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 2. Các công trình khoa học đã công bố */}
+                        <div>
+                            <div className="flex items-center justify-between mb-6">
+                                {/* TIÊU ĐỀ NẰM ĐẦU (BÊN TRÁI) */}
+                                <h4 className="text-blue-800 font-black text-sm flex items-center gap-2 uppercase tracking-wider mb-0">
+                                    <div className="w-2 h-6 bg-blue-600 rounded-full"></div>
+                                    2. Các công trình khoa học đã công bố
+                                </h4>
+
+                                {/* BADGE NẰM CUỐI (BÊN PHẢI) */}
+                                {publications?.length > 0 && (
+                                    <span className="text-[10px] font-black px-3 py-1.5 bg-blue-600 text-white rounded-xl shadow-sm shadow-blue-200 uppercase">
+                                        {publications.length} công trình
+                                    </span>
+                                )}
+                            </div>
+                            <div>
+                                {/* LIST */}
+                                <div className="space-y-4">
+                                    {publications && publications.length > 0 ? (
+                                        publications.map((item, index) => (
+                                            <div
+                                                key={index}
+                                                className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition group"
+                                            >
+                                                <div className="flex gap-4">
+                                                    {/* INDEX */}
+                                                    <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-sm shrink-0">
+                                                        {index + 1}
+                                                    </div>
+
+                                                    {/* CONTENT */}
+                                                    <div className="flex-1 space-y-3">
+                                                        {/* TITLE */}
+                                                        <h5 className="font-bold text-slate-800 text-base leading-snug group-hover:text-blue-700 transition">
+                                                            {item.publicationName ||
+                                                                "—"}
+                                                        </h5>
+
+                                                        {/* META */}
+                                                        <div className="flex flex-wrap gap-2 text-xs">
+                                                            <span className="px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg font-semibold">
+                                                                📅{" "}
+                                                                {item.publicationYear ||
+                                                                    "---"}
+                                                            </span>
+
+                                                            <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg font-medium">
+                                                                📚{" "}
+                                                                {item.journalName ||
+                                                                    "Không rõ"}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* NOTES */}
+                                                        {item.notes && (
+                                                            <div className="text-sm text-slate-500 italic border-l-2 border-slate-200 pl-3">
+                                                                {item.notes}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        /* EMPTY STATE */
+                                        <div className="p-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200 flex flex-col items-center text-center">
+                                            <div className="w-14 h-14 bg-slate-200 rounded-full flex items-center justify-center text-slate-400 mb-4">
+                                                📄
+                                            </div>
+
+                                            <p className="text-slate-500 font-semibold">
+                                                Chưa có công trình khoa học nào
+                                            </p>
+
+                                            <p className="text-xs text-slate-400 mt-1 italic">
+                                                Dữ liệu sẽ hiển thị khi có bài
+                                                báo được thêm
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </CardSection>
             </div>

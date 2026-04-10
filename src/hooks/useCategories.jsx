@@ -10,6 +10,7 @@ export const useCategories = () => {
         positions: [],
         departments: [],
         training: [],
+        roleInResearch: [], // <--- Thêm khởi tạo mảng này
     });
     const [loading, setLoading] = useState(true);
 
@@ -25,6 +26,7 @@ export const useCategories = () => {
                     positions: "/Category/GetParentId?parentId=33",
                     departments: "/Department/GetAll",
                     training: "/Category/GetParentId?parentId=34",
+                    roleInResearch: "/Category/GetParentId?parentId=36", // <--- Thêm dòng này ở đây
                 };
 
                 const keys = Object.keys(apiConfig);

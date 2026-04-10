@@ -4,7 +4,6 @@ import axiosClient from '../axios/axiosClient'; // Giả sử Trí đã có axio
 
 export const useEducationData = (initialData = [], staffId) => {
     const [eduHistories, setEduHistories] = useState([]);
-
     // Đồng bộ khi dữ liệu từ API StaffData đổ về
     useEffect(() => {
         if (initialData) setEduHistories(initialData);

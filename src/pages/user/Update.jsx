@@ -1,23 +1,28 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import useStaffData from "../hooks/useStaffData";
-import axiosClient from "../axios/axiosClient";
-import { useCategories } from "../hooks/useCategories";
-import { useWorkData } from "../hooks/useWorkData";
-import { useLanguageData } from "../hooks/useLanguageData";
+import useStaffData from "../../hooks/useStaffData";
+import axiosClient from "../../axios/axiosClient";
+import { useCategories } from "../../hooks/useCategories";
+import { useWorkData } from "../../hooks/useWorkData";
+import { useLanguageData } from "../../hooks/useLanguageData";
+import useScientificResearchesData from "../../hooks/useScientificResearchesData";
+import useScientificPublicationsData from "../../hooks/useScientificPublicationsData";
 
 import {
     FaSave,
     FaArrowLeft,
+    FaTrashAlt,
     FaIdCard,
+    FaMicroscope,
+    FaPlusCircle,
     FaGraduationCap,
     FaBriefcase,
     FaPlus,
     FaUserCircle,
     FaTrash,
 } from "react-icons/fa";
-import { useEducationData } from "../hooks/useEducationData";
+import { useEducationData } from "../../hooks/useEducationData";
 
 const Update = () => {
     const { id } = useParams();
@@ -25,7 +30,14 @@ const Update = () => {
     // Load dữ liệu từ categories
     const { categories, loading } = useCategories();
     // 1. Lấy dữ liệu gốc từ Hook
-    const { staff, employment, education, languages } = useStaffData(id || 1);
+    const {
+        staff,
+        employment,
+        education,
+        languages,
+        researches,
+        publications,
+    } = useStaffData(id || 1);
     // 2. State quản lý Form và Danh mục
     const [formData, setFormData] = useState({});
     const {
@@ -34,8 +46,22 @@ const Update = () => {
         addWorkHistory,
         removeWorkHistory,
     } = useWorkData(employment, id);
+    const {
+        publications: managedPublications,
+        handlePubChange,
+        addPublication,
+        removePublication,
+    } = useScientificPublicationsData(publications || [], id);
+    const {
+        researches: managedResearches,
+        handleResearchChange,
+        addResearch,
+        removeResearch,
+    } = useScientificResearchesData(researches || [], id);
+    console.log(researches);
     // Thay vì dùng useState lẻ tẻ
     const {
+        allLanguages,
         languages: languageList, // Đổi tên từ 'language' thành 'languages' cho đúng số nhiều
         handleLanguageChange,
         addLanguage,
@@ -46,6 +72,7 @@ const Update = () => {
         section1: true,
         section2: false,
         section3: false,
+        section4: false, // Thêm cái này
     });
 
     const toggleSection = (section) => {
@@ -69,14 +96,25 @@ const Update = () => {
         }
     }, [staff]);
     const handleFormChange = (e) => {
-        const { name, value } = e.target;
+        const { name, value, type } = e.target;
+
+        // 1. Xử lý mặc định: Chuỗi rỗng "" thì biến thành null
         let val = value === "" ? null : value;
 
-        // Ép kiểu số cho các trường ID hoặc Năm để Backend nhận đúng kiểu dữ liệu
-        if (val !== null && (name.endsWith("Id") || name.endsWith("Year"))) {
-            val = parseInt(value) || 0;
+        // 2. Ép kiểu số cho các trường ID, Năm hoặc các trường Number
+        // Chỉ ép kiểu khi giá trị KHÔNG PHẢI null
+        if (val !== null) {
+            if (
+                name.endsWith("Id") ||
+                name.endsWith("Year") ||
+                type === "number"
+            ) {
+                const parsed = parseInt(value, 10);
+                val = isNaN(parsed) ? null : parsed;
+            }
         }
 
+        // 3. Cập nhật State
         setFormData((prev) => ({
             ...prev,
             [name]: val,
@@ -85,15 +123,38 @@ const Update = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            // 1. Cập nhật thông tin cá nhân trước
-            await axiosClient.put("/Staff/Update", formData);
+            // --- BƯỚC QUAN TRỌNG: LÀM SẠCH DỮ LIỆU CÁ NHÂN (Staff) ---
+            const cleanStaffData = { ...formData };
 
-            // 2. Lưu danh sách Học vấn (Xử lý từng thằng để tránh lỗi ID: 0)
+            // Quét qua tất cả các trường, cái nào trống thì ép về null
+            Object.keys(cleanStaffData).forEach((key) => {
+                if (
+                    cleanStaffData[key] === "" ||
+                    cleanStaffData[key] === undefined
+                ) {
+                    cleanStaffData[key] = null;
+                }
+            });
+
+            // 1. Cập nhật thông tin cá nhân (Gửi cleanStaffData thay vì formData)
+            await axiosClient.put("/Staff/Update", cleanStaffData);
+
+            // --- HÀM TIỆN ÍCH ĐỂ LÀM SẠCH CÁC DANH SÁCH PHỤ ---
+            const cleanItem = (item) => {
+                const newItem = { ...item, staffId: parseInt(id) };
+                Object.keys(newItem).forEach((k) => {
+                    if (newItem[k] === "" || newItem[k] === undefined)
+                        newItem[k] = null;
+                });
+                return newItem;
+            };
+
+            // 2. Lưu danh sách Học vấn
             for (const item of eduHistories) {
-                const payload = { ...item, staffId: parseInt(id) };
-                if (item.id === 0 || !item.id) {
-                    delete payload.id; // Xóa id: 0 để Backend tự sinh ID mới
-                    await axiosClient.post("/EduHistory/Create", payload);
+                const payload = cleanItem(item);
+                if (!payload.id || payload.id === 0) {
+                    const { id, ...createPayload } = payload; // Bóc tách để bỏ id
+                    await axiosClient.post("/EduHistory/Create", createPayload);
                 } else {
                     await axiosClient.put("/EduHistory/Update", payload);
                 }
@@ -101,33 +162,78 @@ const Update = () => {
 
             // 3. Lưu danh sách Quá trình công tác
             for (const item of workHistories) {
-                const payload = { ...item, staffId: parseInt(id) };
-                if (item.id === 0 || !item.id) {
-                    delete payload.id;
-                    await axiosClient.post("/EmpHistory/Create", payload);
+                const payload = cleanItem(item);
+                if (!payload.id || payload.id === 0) {
+                    const { id, ...createPayload } = payload;
+                    await axiosClient.post("/EmpHistory/Create", createPayload);
                 } else {
                     await axiosClient.put("/EmpHistory/Update", payload);
                 }
             }
+            // 5. Lưu danh sách CÁC CÔNG TRÌNH KHOA HỌC ĐÃ CÔNG BỐ
+            for (const item of managedPublications) {
+                const payload = cleanItem(item);
 
-            // 4. Lưu danh sách Ngoại ngữ
-            for (const item of languageList) {
-                const payload = { ...item, staffId: parseInt(id) };
-                if (item.id === 0 || !item.id) {
-                    delete payload.id;
-                    await axiosClient.post("/Language/Create", payload);
-                } else {
-                    await axiosClient.put("/Language/Update", payload);
+                // Nếu không có ID hoặc ID = 0 thì gọi API Create
+                if (!payload.id || payload.id === 0) {
+                    const { id, ...createPayload } = payload; // Bỏ id ra khỏi payload khi tạo mới
+                    await axiosClient.post(
+                        "/ScientificPublication/Create",
+                        createPayload,
+                    );
+                }
+                // Ngược lại gọi API Update
+                else {
+                    await axiosClient.put(
+                        "/ScientificPublication/Update",
+                        payload,
+                    );
                 }
             }
-
+            // 4. Lưu danh sách Ngoại ngữ
+            for (const item of languageList) {
+                const payload = cleanItem(item);
+                if (!payload.id || payload.id === 0) {
+                    const { id, ...createPayload } = payload;
+                    await axiosClient.post(
+                        "/StaffLanguage/Create",
+                        createPayload,
+                    );
+                } else {
+                    await axiosClient.put("/StaffLanguage/Update", payload);
+                }
+            }
+            for (const item of managedResearches) {
+                const payload = cleanItem(item);
+                if (!payload.id || payload.id === 0) {
+                    // Tạo mới
+                    const { id, ...createPayload } = payload;
+                    await axiosClient.post(
+                        "/ScientificResearch/Create",
+                        createPayload,
+                    );
+                } else {
+                    // Cập nhật
+                    await axiosClient.put(
+                        "/ScientificResearch/Update",
+                        payload,
+                    );
+                }
+            }
             alert("✅ Cập nhật thành công toàn bộ dữ liệu!");
             navigate(-1);
         } catch (err) {
-            console.error("Lỗi chi tiết:", err.response?.data || err.message);
-            alert(
-                `❌ Lỗi: ${err.response?.data?.message || "Kiểm tra lại kết nối Backend"}`,
+            console.error(
+                "Lỗi chi tiết:",
+                err.response?.data?.errors || err.response?.data || err.message,
             );
+            // Hiện lỗi cụ thể từ Server để Trí biết field nào đang bị 'chửi'
+            const validationErrors = err.response?.data?.errors;
+            let errorMsg = "Kiểm tra lại dữ liệu nhập vào";
+            if (validationErrors) {
+                errorMsg = Object.values(validationErrors).flat().join("\n");
+            }
+            alert(`❌ Lỗi:\n${errorMsg}`);
         }
     };
 
@@ -477,98 +583,101 @@ const Update = () => {
                             </div>
                         </div>
 
-                        {languageList.length > 0 ? (
-                            <div className="grid grid-cols-1 gap-6">
-                                {languageList.map((lang, index) => (
-                                    <div
-                                        key={lang.id || index}
-                                        className="p-6 border border-slate-100 rounded-3xl bg-white shadow-sm relative group transition-all hover:border-indigo-200"
-                                    >
-                                        {/* Nút xóa ngoại ngữ */}
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                removeLanguage(index)
-                                            }
-                                            className="absolute -top-3 -right-3 bg-red-500 hover:bg-red-600 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all opacity-0 group-hover:opacity-100"
-                                        >
-                                            <FaTrash size={12} />
-                                        </button>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-4">
-                                            <InputField
-                                                label="Tên ngoại ngữ"
-                                                name="languageName"
-                                                value={lang.languageName || ""}
-                                                onChange={(e) =>
-                                                    handleLanguageChange(
-                                                        index,
-                                                        e,
-                                                    )
-                                                }
-                                                placeholder="VD: Tiếng Anh, Tiếng Nhật..."
-                                            />
-                                            <InputField
-                                                label="Mức độ sử dụng (Chứng chỉ)"
-                                                name="proficiencyLevel"
-                                                value={
-                                                    lang.proficiencyLevel || ""
-                                                }
-                                                onChange={(e) =>
-                                                    handleLanguageChange(
-                                                        index,
-                                                        e,
-                                                    )
-                                                }
-                                                placeholder="VD: IELTS 7.0, N3..."
-                                            />
-                                        </div>
-
-                                        <div className="grid grid-cols-1">
-                                            <InputField
-                                                label="Ghi chú"
-                                                name="notes"
-                                                value={lang.notes || ""}
-                                                onChange={(e) =>
-                                                    handleLanguageChange(
-                                                        index,
-                                                        e,
-                                                    )
-                                                }
-                                                placeholder="VD: Sử dụng tốt trong giao tiếp chuyên môn..."
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
-
-                                {/* Nút Thêm khi đã có danh sách - Căn trái cho đẹp */}
-                                <div className="flex justify-start">
-                                    <button
-                                        type="button"
-                                        onClick={addLanguage}
-                                        className="flex items-center gap-2 bg-indigo-50 text-indigo-600 px-6 py-3 rounded-2xl font-bold hover:bg-indigo-100 transition-all border border-indigo-100"
-                                    >
-                                        <FaPlus size={12} />
-                                        THÊM NGOẠI NGỮ MỚI
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="text-center py-12 bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100">
-                                <p className="text-slate-400 font-bold italic mb-4">
-                                    Chưa có thông tin ngoại ngữ.
-                                </p>
-                                {/* Nút Thêm khi danh sách rỗng - Hiện to ở giữa để mời gọi người dùng */}
+                        {languageList.map((lang, index) => (
+                            <div
+                                key={lang.id || index}
+                                className="p-6 border border-slate-100 rounded-3xl bg-white shadow-sm relative group transition-all hover:border-indigo-200"
+                            >
+                                {/* Nút xóa */}
                                 <button
                                     type="button"
-                                    onClick={addLanguage}
-                                    className="inline-flex items-center gap-2 bg-white text-indigo-600 px-8 py-3 rounded-2xl font-bold shadow-sm border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all"
+                                    onClick={() => removeLanguage(index)}
+                                    className="absolute -top-3 -right-3 bg-red-500 hover:bg-red-600 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all opacity-0 group-hover:opacity-100 z-20"
                                 >
-                                    <FaPlus size={12} />
-                                    BỔ SUNG NGOẠI NGỮ
+                                    <FaTrash size={12} />
                                 </button>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-4">
+                                    {/* DROPDOWN CHỌN NGÔN NGỮ */}
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">
+                                            Tên ngoại ngữ
+                                        </label>
+                                        <div className="relative">
+                                            <select
+                                                name="languageId"
+                                                value={lang.languageId || ""}
+                                                onChange={(e) =>
+                                                    handleLanguageChange(
+                                                        index,
+                                                        e,
+                                                    )
+                                                }
+                                                className="w-full pl-4 pr-10 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:bg-white outline-none transition-all duration-300 font-medium text-slate-700 shadow-sm appearance-none cursor-pointer"
+                                            >
+                                                <option value="">
+                                                    -- Chọn ngôn ngữ --
+                                                </option>
+                                                {allLanguages.map((cat) => (
+                                                    <option
+                                                        key={cat.id}
+                                                        value={cat.id}
+                                                    >
+                                                        {cat.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {/* Icon mũi tên cho dropdown */}
+                                            <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-slate-400">
+                                                <svg
+                                                    className="w-4 h-4"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth="2"
+                                                        d="M19 9l-7 7-7-7"
+                                                    />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* TRÌNH ĐỘ (Vẫn nhập tay) */}
+                                    <InputField
+                                        label="Mức độ sử dụng (Chứng chỉ)"
+                                        name="proficiencyLevel"
+                                        value={lang.proficiencyLevel || ""}
+                                        onChange={(e) =>
+                                            handleLanguageChange(index, e)
+                                        }
+                                        placeholder="VD: IELTS 7.0, N3..."
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1">
+                                    <InputField
+                                        label="Ghi chú"
+                                        name="notes"
+                                        value={lang.notes || ""}
+                                        onChange={(e) =>
+                                            handleLanguageChange(index, e)
+                                        }
+                                        placeholder="VD: Sử dụng tốt trong giao tiếp chuyên môn..."
+                                    />
+                                </div>
                             </div>
-                        )}
+                        ))}
+                        <button
+                            type="button"
+                            onClick={addLanguage}
+                            className="mt-10 bg-indigo-600 text-white px-5 py-2 rounded-xl font-bold hover:bg-indigo-700"
+                        >
+                            + Thêm ngoại ngữ
+                        </button>
                     </div>
                 </SectionCard>
 
@@ -676,6 +785,318 @@ const Update = () => {
                             <FaPlus size={14} />
                             Thêm quá trình công tác
                         </button>
+                    </div>
+                </SectionCard>
+
+                <SectionCard
+                    title="IV. NGHIÊN CỨU KHOA HỌC"
+                    icon={<FaMicroscope className="text-blue-500" />}
+                    isOpen={openSections.section4}
+                    onToggle={() => toggleSection("section4")}
+                >
+                    <div className="grid grid-cols-1 gap-6">
+                        <div className="flex items-center justify-between">
+                            <h4 className="text-blue-800 font-black text-sm flex items-center gap-2 uppercase tracking-wider">
+                                <div className="w-2 h-6 bg-blue-600 rounded-full"></div>
+                                1. Các đề tài nghiên cứu khoa học đã và đang
+                                tham gia
+                            </h4>
+                            <button
+                                type="button"
+                                onClick={addResearch}
+                                className="px-4 py-2 bg-blue-600 text-white text-xs font-black rounded-xl hover:bg-blue-700 transition-all shadow-sm shadow-blue-200 uppercase"
+                            >
+                                + Thêm đề tài
+                            </button>
+                        </div>
+
+                        {managedResearches.length > 0 ? (
+                            managedResearches.map((item, index) => (
+                                <div
+                                    key={index}
+                                    className="group relative p-6 bg-white border border-slate-200 rounded-[2rem] shadow-sm hover:border-blue-300 hover:shadow-md transition-all duration-300 space-y-5"
+                                >
+                                    {/* NÚT XÓA: Luôn hiển thị, không cần hover */}
+                                    <button
+                                        type="button"
+                                        onClick={() => removeResearch(index)}
+                                        // className="absolute top-4 right-4 w-9 h-9 flex items-center  justify-center bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all rounded-xl z-20"
+                                        title="Xóa đề tài"
+                                        className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all text-xs"
+                                    >
+                                        <i className="fas fa-trash-alt"></i>
+                                    </button>
+
+                                    {/* TITLE */}
+                                    <div className="flex items-center">
+                                        <h5 className="text-[11px] font-black text-blue-600  uppercase tracking-[0.2em]">
+                                            Đề tài nghiên cứu #{index + 1}
+                                        </h5>
+                                    </div>
+
+                                    {/* TÊN ĐỀ TÀI */}
+                                    <div className="space-y-1 relative z-10">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
+                                            Tên đề tài nghiên cứu
+                                        </label>
+                                        <textarea
+                                            rows="2"
+                                            name="researchName"
+                                            value={item.researchName || ""}
+                                            onChange={(e) =>
+                                                handleResearchChange(index, e)
+                                            }
+                                            className="w-full px-5 py-3 text-sm font-bold bg-slate-50 border border-transparent rounded-[1.2rem] 
+                        focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none shadow-inner"
+                                            placeholder="Nhập tên đề tài đầy đủ..."
+                                        />
+                                    </div>
+
+                                    {/* GRID THÔNG TIN */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
+                                                Cấp đề tài
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="researchLevel"
+                                                value={item.researchLevel || ""}
+                                                onChange={(e) =>
+                                                    handleResearchChange(
+                                                        index,
+                                                        e,
+                                                    )
+                                                }
+                                                className="w-full px-5 py-2.5 text-sm font-bold bg-slate-50 border border-transparent rounded-xl 
+                            focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                                placeholder="VD: Cấp Trường, Cấp Bộ..."
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
+                                                Vai trò
+                                            </label>
+                                            <select
+                                                name="roleInResearchId"
+                                                value={
+                                                    item.roleInResearchId?.toString() ||
+                                                    ""
+                                                }
+                                                onChange={(e) =>
+                                                    handleResearchChange(
+                                                        index,
+                                                        e,
+                                                    )
+                                                }
+                                                className="w-full px-5 py-2.5 text-sm font-bold bg-blue-50/50 border border-transparent rounded-xl 
+                            text-blue-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer shadow-sm"
+                                            >
+                                                <option value="">
+                                                    -- Chọn vai trò --
+                                                </option>
+                                                {categories.roleInResearch?.map(
+                                                    (cat) => (
+                                                        <option
+                                                            key={cat.id}
+                                                            value={cat.id.toString()}
+                                                        >
+                                                            {cat.name}
+                                                        </option>
+                                                    ),
+                                                )}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* THỜI GIAN */}
+                                    <div className="space-y-1 relative z-10">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
+                                            Thời gian thực hiện
+                                        </label>
+                                        <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl w-fit border border-slate-100">
+                                            <input
+                                                type="number"
+                                                name="startYear"
+                                                value={item.startYear || ""}
+                                                onChange={(e) =>
+                                                    handleResearchChange(
+                                                        index,
+                                                        e,
+                                                    )
+                                                }
+                                                className="w-24 px-3 py-1.5 text-sm text-center font-bold bg-white border border-slate-200 rounded-lg 
+                            focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm"
+                                                placeholder="Bắt đầu"
+                                            />
+                                            <span className="text-slate-300 font-black">
+                                                →
+                                            </span>
+                                            <input
+                                                type="number"
+                                                name="endYear"
+                                                value={item.endYear || ""}
+                                                onChange={(e) =>
+                                                    handleResearchChange(
+                                                        index,
+                                                        e,
+                                                    )
+                                                }
+                                                className="w-24 px-3 py-1.5 text-sm text-center font-bold bg-white border border-slate-200 rounded-lg 
+                            focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm"
+                                                placeholder="Kết thúc"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="py-12 text-center bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
+                                <p className="text-slate-400 text-sm font-black italic">
+                                    Chưa có dữ liệu nghiên cứu khoa học.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                    <div className="space-y-6 mt-15">
+                        {/* TIÊU ĐỀ MỤC */}
+                        <div className="flex items-center justify-between">
+                            <h4 className="text-blue-800 font-black text-sm flex items-center gap-2 uppercase tracking-wider">
+                                <div className=" w-2 h-6 bg-blue-600 rounded-full"></div>
+                                2. Các công trình khoa học đã công bố
+                            </h4>
+                            <button
+                                type="button"
+                                onClick={addPublication}
+                                className="px-4 py-2 bg-blue-600 text-white text-xs font-black rounded-xl hover:bg-blue-700 transition-all shadow-sm shadow-blue-200 uppercase"
+                            >
+                                + Thêm công trình
+                            </button>
+                        </div>
+
+                        {/* DANH SÁCH FORM NHẬP */}
+                        <div className="grid grid-cols-1 gap-6">
+                            {managedPublications.map((item, index) => (
+                                <div
+                                    key={index}
+                                    className="p-6 bg-white border border-slate-200 rounded-[2rem] shadow-sm space-y-5 relative overflow-hidden group"
+                                >
+                                    {/* HEADER CỦA CARD */}
+                                    <div className="flex items-center justify-between relative z-10">
+                                        <h5 className="text-[11px] font-black text-blue-600 uppercase tracking-[0.2em]">
+                                            Công trình khoa học #{index + 1}
+                                        </h5>
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                removePublication(index)
+                                            }
+                                            className="w-8 h-8 flex items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all text-xs"
+                                            title="Xóa công trình này"
+                                        >
+                                            <i className="fas fa-trash-alt"></i>
+                                        </button>
+                                    </div>
+
+                                    {/* TÊN CÔNG TRÌNH / BÀI BÁO */}
+                                    <div className="space-y-1 relative z-10">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
+                                            Tên công trình, bài báo đã công bố
+                                        </label>
+                                        <textarea
+                                            rows="2"
+                                            name="publicationName"
+                                            value={item.publicationName || ""}
+                                            onChange={(e) =>
+                                                handlePubChange(index, e)
+                                            }
+                                            className="w-full px-5 py-3 text-sm font-bold bg-slate-50 border border-transparent rounded-[1.2rem] 
+                        focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none shadow-inner"
+                                            placeholder="VD: Nghiên cứu ứng dụng AI trong quản lý đào tạo tại DNTU..."
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
+                                        {/* NĂM CÔNG BỐ */}
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
+                                                Năm công bố
+                                            </label>
+                                            <input
+                                                type="number"
+                                                name="publicationYear"
+                                                value={
+                                                    item.publicationYear || ""
+                                                }
+                                                onChange={(e) =>
+                                                    handlePubChange(index, e)
+                                                }
+                                                className="w-full px-5 py-2.5 text-sm font-bold bg-slate-50 border border-transparent rounded-xl 
+                            focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                                placeholder="Năm (VD: 2024)"
+                                            />
+                                        </div>
+
+                                        {/* TÊN TẠP CHÍ / HỘI THẢO */}
+                                        <div className="md:col-span-2 space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
+                                                Tên tạp chí, nhà xuất bản, hội
+                                                thảo
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="journalName"
+                                                value={item.journalName || ""}
+                                                onChange={(e) =>
+                                                    handlePubChange(index, e)
+                                                }
+                                                className="w-full px-5 py-2.5 text-sm font-bold bg-slate-50 border border-transparent rounded-xl 
+                            focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                                placeholder="VD: Tạp chí Khoa học & Công nghệ, Kỷ yếu hội thảo quốc tế..."
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* GHI CHÚ THÊM */}
+                                    <div className="space-y-1 relative z-10">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">
+                                            Ghi chú (Số hiệu, trang, link bài
+                                            báo...)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="notes"
+                                            value={item.notes || ""}
+                                            onChange={(e) =>
+                                                handlePubChange(index, e)
+                                            }
+                                            className="w-full px-5 py-2.5 text-sm bg-slate-50 border border-transparent rounded-xl 
+                        focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all italic text-slate-500"
+                                            placeholder="Không bắt buộc..."
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+
+                            {/* NẾU CHƯA CÓ DỮ LIỆU */}
+                            {managedPublications.length === 0 && (
+                                <div className="py-12 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center bg-slate-50/50">
+                                    <p className="text-slate-400 text-sm font-bold italic mb-4">
+                                        Chưa có công trình khoa học nào được
+                                        thêm
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={addPublication}
+                                        className="text-blue-600 font-black text-xs uppercase hover:underline"
+                                    >
+                                        + Nhấp vào đây để thêm mới
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </SectionCard>
             </div>

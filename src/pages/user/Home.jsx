@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import ResumeExport from "./ResumeExport"; // Import vào
+import ResumeExport from "../user/ResumeExport"; // Import vào
 import {
     FaGraduationCap,
     FaBriefcase,
@@ -11,15 +11,15 @@ import {
     FaUniversity,
     FaHistory,
 } from "react-icons/fa";
-import useStaffData from "../hooks/useStaffData"; // Đảm bảo đúng đường dẫn file hook
-import { calculateReadiness } from "../utils/calculateReadiness";
-import { useWorkData } from "../hooks/useWorkData";
+import useStaffData from "../../hooks/useStaffData"; // Đảm bảo đúng đường dẫn file hook
+import { calculateReadiness } from "../../utils/calculateReadiness";
+import { useWorkData } from "../../hooks/useWorkData";
 // Hoặc đường dẫn tương ứng của Trí
 const Home = () => {
-    
     const navigate = useNavigate(); // <--- Thêm dòng này vào đây
     // 1. Giao diện Thẻ thống kê (Academic Assets)
     const { staff, education, employment, languages } = useStaffData();
+    console.log(staff);
     const fieldLabels = {
         fullName: "Họ và tên",
         email: "Email liên lạc",
@@ -54,7 +54,7 @@ const Home = () => {
             year: new Date(job.fromDate).getFullYear(),
             title: job.position || "Chức vụ chưa cập nhật",
             desc: job.organization || "Đơn vị chưa cập nhật",
- // Nếu đang làm (toDate null) thì hiện icon tên lửa cho "máu"
+            // Nếu đang làm (toDate null) thì hiện icon tên lửa cho "máu"
             color: job.toDate ? "bg-slate-300" : "bg-blue-500", // Đang làm thì màu xanh nổi bật
             timestamp: new Date(job.fromDate).getTime(), // Dùng để sắp xếp
         }))
@@ -62,23 +62,23 @@ const Home = () => {
         .sort((a, b) => b.timestamp - a.timestamp)
         // 4. CHỐT: Chỉ lấy đúng 4 mục mới nhất
         .slice(0, 4);
-const handleDownload = () => {
-    const fileUrl = "/files/Mau_Ly_Lich.pdf";
-    const link = document.createElement("a");
-    link.href = fileUrl;
-    link.download = "Mau_Ly_Lich_DNTU.pdf";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-};
+    const handleDownload = () => {
+        const fileUrl = "/files/Mau_Ly_Lich.pdf";
+        const link = document.createElement("a");
+        link.href = fileUrl;
+        link.download = "Mau_Ly_Lich_DNTU.pdf";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
-// Trong JSX:
-<button 
-    onClick={handleDownload}
-    className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 border border-white/10 active:scale-95"
->
-    <FaFilePdf className="text-red-400" /> Tải PDF (Mẫu chuẩn)
-</button>
+    // Trong JSX:
+    <button
+        onClick={handleDownload}
+        className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 border border-white/10 active:scale-95"
+    >
+        <FaFilePdf className="text-red-400" /> Tải PDF (Mẫu chuẩn)
+    </button>;
     // 1. Gọi hàm để lấy kết quả (Destructuring lấy score)
     const { score, missingFields } = calculateReadiness(
         staff,
@@ -171,12 +171,47 @@ const handleDownload = () => {
                 {/* --- CỘT TRÁI (TIẾN ĐỘ & TIMELINE) --- */}
                 <div className="lg:col-span-2 space-y-8">
                     {/* 1. CHỈ SỐ SỨC KHỎE HỒ SƠ (PROFILE READINESS) */}
-                    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden">
-                        {/* Decor trang trí góc */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
+                    <div
+                        className={`bg-white p-8 rounded-[2.5rem] border shadow-sm relative
+                        ${staff.isApproved === 1 ? "border-green-500" : "border-orange-500"}`}
+                    >
+                        {" "}
+                        {/* --- BADGE TRẠNG THÁI (CẮT NGANG BORDER) --- */}
+                        {/* --- BADGE TRẠNG THÁI NẰM ĐÈ LÊN BORDER TOP --- */}
+                        <div className="absolute -top-3.5 right-10 z-30">
+                            {/* -top-3.5 (~14px) là khoảng cách để tâm Badge đè đúng vào đường line border */}
+                            {staff.isApproved === 1 ? (
+                                <div className="group relative flex items-center gap-2 px-4 py-1 bg-white text-green-600 border border-green-200 rounded-full shadow-sm transition-all hover:bg-green-600 hover:text-white cursor-help">
+                                    <i className="fa-solid fa-circle-check text-[10px]"></i>
+                                    <span className="text-[10px] font-black uppercase tracking-widest">
+                                        Đã duyệt
+                                    </span>
 
+                                    {/* Tooltip (Vẫn giữ nguyên) */}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-48 p-2 bg-slate-900 text-white text-[10px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-center shadow-xl">
+                                        Hồ sơ đã được xác thực bởi DNTU.
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="group relative flex items-center gap-2 px-4 py-1 bg-white text-amber-600 border border-amber-200 rounded-full shadow-sm transition-all hover:bg-amber-500 hover:text-white cursor-help">
+                                    <i className="fa-solid fa-clock text-[10px] animate-pulse"></i>
+                                    <span className="text-[10px] font-black uppercase tracking-widest">
+                                        Đang chờ duyệt
+                                    </span>
+
+                                    {/* Tooltip (Vẫn giữ nguyên) */}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-48 p-2 bg-slate-900 text-white text-[10px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-center shadow-xl">
+                                        Hồ sơ đang trong hàng đợi phê duyệt.
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        {/* Decor */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 opacity-30"></div>
                         <div className="relative flex flex-col md:flex-row items-center gap-10">
-                            {/* BÊN TRÁI: Vòng tròn Progress (Giữ nguyên của Trí) */}
+                            {/* Progress */}
                             <div className="relative w-28 h-28 flex items-center justify-center shrink-0">
                                 <svg className="w-full h-full -rotate-90">
                                     <circle
@@ -195,15 +230,17 @@ const handleDownload = () => {
                                         stroke="currentColor"
                                         strokeWidth="8"
                                         fill="transparent"
-                                        strokeDasharray={strokeDasharray}
-                                        strokeDashoffset={strokeDashoffset}
+                                        strokeDasharray={48 * 2 * Math.PI}
+                                        strokeDashoffset={
+                                            48 * 2 * Math.PI * (1 - score / 100)
+                                        }
                                         strokeLinecap="round"
-                                        className={`${strokeColor} transition-all duration-1000 ease-out`}
+                                        className={`${score === 100 ? "text-green-500" : "text-blue-600"} transition-all duration-1000 ease-out`}
                                     />
                                 </svg>
                                 <div className="absolute flex flex-col items-center">
                                     <span
-                                        className={`text-2xl font-black ${strokeColor} leading-none`}
+                                        className={`text-2xl font-black ${score === 100 ? "text-green-600" : "text-blue-600"} leading-none`}
                                     >
                                         {score}%
                                     </span>
@@ -213,7 +250,7 @@ const handleDownload = () => {
                                 </div>
                             </div>
 
-                            {/* BÊN PHẢI: Nội dung lấp đầy khoảng trống */}
+                            {/* Content */}
                             <div className="flex-1 space-y-4 text-center md:text-left">
                                 <div>
                                     <h3 className="text-xl font-black text-slate-800 tracking-tight uppercase">
@@ -223,12 +260,12 @@ const handleDownload = () => {
                                     </h3>
                                     <p className="text-sm text-slate-500 font-medium leading-relaxed">
                                         {score < 100
-                                            ? `Bạn còn thiếu thông tin lý lịch.`
+                                            ? `Bạn còn thiếu một vài thông tin quan trọng.`
                                             : "Lý lịch của bạn đã sẵn sàng để xuất file và lưu hành nội bộ."}
                                     </p>
                                 </div>
+
                                 <div className="flex flex-wrap justify-center md:justify-start gap-2">
-                                    {/* Chỉ hiện tối đa 4 mục đầu tiên để tránh bị tràn layout */}
                                     {missingFields
                                         .slice(0, 4)
                                         .map((field, index) => (
@@ -239,8 +276,6 @@ const handleDownload = () => {
                                                 • {fieldLabels[field] || field}
                                             </span>
                                         ))}
-
-                                    {/* Nếu thiếu nhiều hơn 4 mục thì hiện số lượng còn lại */}
                                     {missingFields.length > 4 && (
                                         <span className="px-2.5 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg border border-blue-100">
                                             + {missingFields.length - 4} mục
@@ -248,30 +283,24 @@ const handleDownload = () => {
                                         </span>
                                     )}
                                 </div>
-                                {/* Checklist nhỏ để lấp khoảng trống */}
+
                                 <div className="flex flex-wrap justify-center md:justify-start gap-2">
                                     {score < 100 ? (
-                                        <>
-                                            <span className="px-3 py-1 bg-amber-50 text-amber-600 text-[10px] font-black rounded-lg border border-amber-100 flex items-center gap-1">
-                                                <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-ping"></span>
-                                                CẦN CẬP NHẬT THÊM
-                                            </span>
-                                            {/* Hiện vài gợi ý từ mảng missing nếu Trí muốn */}
-                                            <button
-                                                onClick={() =>
-                                                    navigate(
-                                                        `/user/edit-staff/${staff.id}`,
-                                                    )
-                                                }
-                                                className="text-[10px] font-black text-blue-600 hover:underline uppercase tracking-widest"
-                                            >
-                                                Chỉnh sửa ngay →
-                                            </button>
-                                        </>
+                                        <button
+                                            onClick={() =>
+                                                navigate(
+                                                    `/user/edit-staff/${staff.id}`,
+                                                )
+                                            }
+                                            className="px-3 py-1 bg-amber-50 text-amber-600 text-[10px] font-black rounded-lg border border-amber-100 flex items-center gap-1 hover:bg-amber-100 transition-colors"
+                                        >
+                                            <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-ping"></span>
+                                            CẦN CẬP NHẬT THÊM →
+                                        </button>
                                     ) : (
-                                        <span className="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-black rounded-lg border border-green-100 flex items-center gap-1">
-                                            <FaCheckCircle /> ĐÃ SẴN SÀNG XUẤT
-                                            FILE
+                                        <span className="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-black rounded-lg border border-green-100 flex items-center gap-2">
+                                            <i className="fa-solid fa-circle-check"></i>{" "}
+                                            ĐÃ SẴN SÀNG XUẤT FILE
                                         </span>
                                     )}
                                 </div>
@@ -279,34 +308,30 @@ const handleDownload = () => {
                         </div>
                     </div>
 
-                    {/* --- BIỂU ĐỒ DÒNG THỜI GIAN (CAREER TIMELINE) --- */}
+                    {/* 2. BIỂU ĐỒ DÒNG THỜI GIAN (CAREER TIMELINE) */}
                     <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                        {/* Tiêu đề Timeline như thiết kế ban đầu */}
                         <div className="flex items-center gap-3 mb-8">
                             <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white">
-                                <FaHistory size={14} />
+                                <i className="fa-solid fa-timeline text-xs"></i>
                             </div>
                             <h3 className="font-black text-slate-800 uppercase text-xs tracking-[0.2em]">
                                 Lộ trình phát triển
                             </h3>
                         </div>
 
-                        {/* Nội dung Timeline */}
                         <div className="relative pl-8 space-y-10 before:absolute before:inset-y-0 before:left-3 before:w-0.5 before:bg-slate-100">
-                            {timelineData.length > 0 ? (
+                            {timelineData && timelineData.length > 0 ? (
                                 timelineData.map((item, idx) => (
                                     <div key={idx} className="relative">
-                                        {/* Chấm tròn trên đường line */}
                                         <div
-                                            className={`absolute -left-[25px] w-4 h-4 ${item.color} rounded-full border-4 border-white shadow-sm z-10`}
+                                            className={`absolute -left-[25px] w-4 h-4 ${item.color || "bg-blue-500"} rounded-full border-4 border-white shadow-sm z-10`}
                                         ></div>
-
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
                                                 {item.year}
                                             </span>
                                             <h4 className="text-sm font-black text-slate-800">
-                                              💼 {item.title}
+                                                💼 {item.title}
                                             </h4>
                                             <p className="text-xs text-slate-500 font-medium">
                                                 {item.desc}
@@ -315,7 +340,6 @@ const handleDownload = () => {
                                     </div>
                                 ))
                             ) : (
-                                /* Thông báo khi mảng rỗng hoặc đang load */
                                 <div className="py-5 text-center">
                                     <p className="text-xs text-slate-400 italic">
                                         Chưa có dữ liệu lộ trình công tác.
@@ -325,7 +349,6 @@ const handleDownload = () => {
                         </div>
                     </div>
                 </div>
-
                 {/* --- CỘT PHẢI (QUICK ACTIONS & EXPORT) --- */}
                 <div className="space-y-6">
                     {/* 4. LỐI TẮT XUẤT FILE (QUICK EXPORT) */}
@@ -344,7 +367,12 @@ const handleDownload = () => {
                             </div>
 
                             <div className="space-y-3">
-                                <button onClick={() => window.open("/user/export", "_blank")} className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 border border-white/10 active:scale-95">
+                                <button
+                                    onClick={() =>
+                                        window.open("/user/export", "_blank")
+                                    }
+                                    className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 border border-white/10 active:scale-95"
+                                >
                                     <FaFilePdf className="text-red-400" /> Tải
                                     PDF (Mẫu chuẩn)
                                 </button>

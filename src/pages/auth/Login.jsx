@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import axiosClient from "../axios/axiosClient";
-
-
+import axiosClient from "../../axios/axiosClient";
+import { jwtDecode } from "jwt-decode"; // Thêm dòng này ở đầu file
+import { GoogleLogin } from "@react-oauth/google";
 export default function Login() {
     const navigate = useNavigate();
 
@@ -21,33 +21,99 @@ export default function Login() {
     const handleLogin = async (e) => {
         e.preventDefault();
         try {
-            const res = await axiosClient.post(
-                "/User/Login",
-                form,
-            );
+            const res = await axiosClient.post("/User/Login", form);
 
             if (res.data.status === 200) {
                 const { accessToken, refreshToken } = res.data.data.token;
-                // Lấy staffId từ Backend trả về
-                const staffId = res.data.data.staffId;
+
                 localStorage.setItem("accessToken", accessToken);
                 localStorage.setItem("refreshToken", refreshToken);
 
-                // Nếu có staffId, điều hướng thẳng vào trang profile của người đó
-                if (staffId) {
-                    navigate(`/user/profile/`);
+                const decoded = jwtDecode(accessToken);
+
+                // --- 1. LẤY ID TỪ TOKEN (TRÍ KIỂM TRA KEY NÀY TRONG TOKEN NHÉ) ---
+                // Thông thường mặc định của .NET là "nameid" hoặc "sub"
+                const userId =
+                    decoded["Id"] || decoded["nameid"] || decoded["sub"];
+
+                const role =
+                    decoded[
+                        "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+                    ];
+                const deptId = decoded["DepartmentId"];
+
+                // --- 2. LƯU ID VÀO LOCALSTORAGE ĐỂ TRANG ĐỔI MẬT KHẨU LẤY ĐƯỢC ---
+                // Mình lưu dưới dạng Object "user" để khớp với code ChangePassword của Trí nhé
+                const userObj = {
+                    id: userId,
+                    role: role,
+                    deptId: deptId,
+                };
+                localStorage.setItem("user", JSON.stringify(userObj));
+
+                // Vẫn giữ các key cũ nếu Trí đang dùng ở chỗ khác
+                localStorage.setItem("userRole", role);
+                localStorage.setItem("deptId", deptId);
+
+                if (role === "Admin" || role === "Manager") {
+                    navigate("/manager/dashboard");
                 } else {
-                    // Trường hợp user mới chưa có staff (nếu có lỗi logic)
-                    alert("Tài khoản này chưa có thông tin giảng viên!");
+                    navigate("/user/");
                 }
             } else {
                 alert(res.data.message);
             }
         } catch (err) {
+            console.error(err);
             alert("Sai tài khoản hoặc mật khẩu!");
         }
     };
+    // --- LOGIC XỬ LÝ GOOGLE LOGIN ---
+    <GoogleLogin
+        onSuccess={async (credentialResponse) => {
+            try {
+                // 1. Gửi ID Token từ Google lên API của mình
+                const res = await axiosClient.post("/LoginGG/GoogleLogin", {
+                    token: credentialResponse.credential,
+                });
 
+                // Kiểm tra status từ Response DTO của Backend
+                if (res.data.status === 200) {
+                    // Backend trả về: { token: { accessToken, refreshToken }, user: { ... } }
+                    const { token, user } = res.data.data;
+
+                    // 2. Lưu AccessToken để gọi API
+                    localStorage.setItem("accessToken", token.accessToken);
+
+                    // 3. Lưu RefreshToken để Renew khi cần (Quan trọng vì Backend đã tạo rồi)
+                    localStorage.setItem("refreshToken", token.refreshToken);
+
+                    // 4. Lưu thông tin user để hiển thị tên/avatar hoặc phân quyền
+                    // Trí nên dùng staffId hoặc userId tùy theo logic các trang bên trong
+                    localStorage.setItem(
+                        "user",
+                        JSON.stringify({
+                            id: user.userId || user.id,
+                            fullName: user.fullName,
+                            role: "User",
+                        }),
+                    );
+
+                    localStorage.setItem("userRole", "User");
+
+                    // 5. Điều hướng vào trang Dashboard
+                    navigate("/user/");
+                } else {
+                    // Trường hợp Backend trả về lỗi (ví dụ: email không thuộc @dntu.edu.vn)
+                    alert(res.data.message || "Đăng nhập thất bại!");
+                }
+            } catch (err) {
+                console.error("FULL ERROR:", err.response);
+                alert(err.response?.data?.message);
+            }
+        }}
+        onError={() => alert("Không thể kết nối với dịch vụ Google!")}
+    />;
     return (
         // Wrapper: Nền xám nhạt toàn màn hình
         <div className="min-h-screen bg-gray-50 flex items-center justify-center font-sans">
@@ -136,6 +202,58 @@ export default function Login() {
                                 >
                                     Đăng nhập
                                 </button>
+                                {/* --- PHẦN SỬA LỖI Ở ĐÂY --- */}
+                                <div className="relative flex py-4 items-center">
+                                    <div className="flex-grow border-t border-gray-200"></div>
+                                    <span className="flex-shrink mx-4 text-gray-400 text-xs uppercase">
+                                        Hoặc
+                                    </span>
+                                    <div className="flex-grow border-t border-gray-200"></div>
+                                </div>
+
+                                <div className="flex justify-center">
+                                    <GoogleLogin
+                                        onSuccess={async (
+                                            credentialResponse,
+                                        ) => {
+                                            try {
+                                                const res =
+                                                    await axiosClient.post(
+                                                        "/LoginGG/GoogleLogin",
+                                                        {
+                                                            token: credentialResponse.credential,
+                                                        },
+                                                    );
+
+                                                if (res.data.status === 200) {
+                                                    const { token } =
+                                                        res.data.data;
+                                                    localStorage.setItem(
+                                                        "accessToken",
+                                                        token.accessToken,
+                                                    );
+                                                    localStorage.setItem(
+                                                        "userRole",
+                                                        "User",
+                                                    );
+                                                    navigate("/user/");
+                                                }
+                                            } catch (err) {
+                                                console.error(
+                                                    "FULL ERROR:",
+                                                    err.response,
+                                                );
+                                                alert(
+                                                    err.response?.data?.message,
+                                                );
+                                            }
+                                        }}
+                                        onError={() =>
+                                            alert("Đăng nhập Google thất bại!")
+                                        }
+                                        useOneTap
+                                    />
+                                </div>
                             </div>
                         </form>
 

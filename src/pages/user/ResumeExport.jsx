@@ -1,7 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import axiosClient from "../axios/axiosClient";
-
+import axiosClient from "../../axios/axiosClient";
 import { useReactToPrint } from "react-to-print";
 
 const ResumeExport = () => {
@@ -10,7 +9,9 @@ const ResumeExport = () => {
     const [education, setEducation] = useState(null);
     const [employment, setEmployment] = useState(null);
     const [languages, setLanguages] = useState(null); // Thêm state này
+    const [researches, setResearches] = useState(null); // Thêm state này
     const [loading, setLoading] = useState(true);
+
     const componentRef = useRef();
 
     const formatDate = (dateString) => {
@@ -37,17 +38,27 @@ const ResumeExport = () => {
                 const staffData =
                     staffRes.data.status === 200 ? staffRes.data.data : {};
 
-                console.log("Đã lấy được Staff Data:", staffData);
                 setStaff(staffData);
 
                 // Bước 2: Kiểm tra xem có ID không rồi mới gọi các API còn lại
                 if (staffData.id) {
                     // Bây giờ mới gọi 3 cái này cùng lúc bằng ID vừa lấy được
-                    const [eduRes, empRes, langRes] = await Promise.all([
-                        axiosClient.get(`/EduHistory/Get?id=${staffData.id}`),
-                        axiosClient.get(`/EmpHistory/Get?id=${staffData.id}`),
-                        axiosClient.get(`/Language/Get?id=${staffData.id}`),
-                    ]);
+                    const [eduRes, empRes, langRes, resRes] = await Promise.all(
+                        [
+                            axiosClient.get(
+                                `/EduHistory/Get?id=${staffData.id}`,
+                            ),
+                            axiosClient.get(
+                                `/EmpHistory/Get?id=${staffData.id}`,
+                            ),
+                            axiosClient.get(
+                                `/StaffLanguage/Get?id=${staffData.id}`,
+                            ),
+                            axiosClient.get(
+                                `/ScientificResearch/Get?id=${staffData.id}`,
+                            ), // Thêm line này
+                        ],
+                    );
 
                     // Bước 3: Đổ dữ liệu vào State
                     if (eduRes.data.status === 200)
@@ -56,7 +67,8 @@ const ResumeExport = () => {
                         setEmployment(empRes.data.data || []);
                     if (langRes.data.status === 200)
                         setLanguages(langRes.data.data || []);
-
+                    if (resRes.data.status === 200)
+                        setResearches(resRes.data.data || []);
                     console.log("Đã lấy đủ dữ liệu học vấn & công tác");
                 } else {
                     console.warn(
@@ -217,7 +229,10 @@ const ResumeExport = () => {
                             gap: "5px",
                         }}
                     >
-                        <p>Ngày, tháng, năm sinh: {staff?.dateOfBirth}</p>
+                        <p>
+                            Ngày, tháng, năm sinh:{" "}
+                            {formatDate(staff?.dateOfBirth)}
+                        </p>
                         <p>Nơi sinh: {staff?.placeOfBirth}</p>
                     </div>
                     <div
@@ -517,7 +532,148 @@ const ResumeExport = () => {
                         </tbody>
                     </table>
                 </div>
-
+                {/* IV. CÁC ĐỀ TÀI, DỰ ÁN NGHIÊN CỨU KHOA HỌC */}
+                <div
+                    className="resume-section"
+                    style={{ marginBottom: "25px" }}
+                >
+                    <h3
+                        style={{
+                            fontWeight: "bold",
+                            fontSize: "13pt",
+                            marginBottom: "10px",
+                            textTransform: "uppercase",
+                        }}
+                    >
+                        IV. CÁC ĐỀ TÀI, DỰ ÁN NGHIÊN CỨU KHOA HỌC
+                    </h3>
+                    <p style={{ fontWeight: "bold", marginBottom: "5px" }}>
+                        1. Các đề tài nghiên cứu khoa học đã và đang tham gia:
+                    </p>
+                    <table
+                        style={{
+                            width: "100%",
+                            borderCollapse: "collapse",
+                            fontSize: "11pt",
+                            border: "1px solid black",
+                        }}
+                    >
+                        <thead>
+                            <tr style={{ backgroundColor: "#f8fafc" }}>
+                                <th
+                                    style={{
+                                        border: "1px solid black",
+                                        padding: "8px",
+                                        width: "40%",
+                                        textAlign: "center",
+                                        fontWeight: "bold",
+                                    }}
+                                >
+                                    Tên đề tài, dự án, nhiệm vụ đã chủ trì hoặc
+                                    tham gia
+                                </th>
+                                <th
+                                    style={{
+                                        border: "1px solid black",
+                                        padding: "8px",
+                                        width: "15%",
+                                        textAlign: "center",
+                                        fontWeight: "bold",
+                                    }}
+                                >
+                                    Thời gian (BĐ - KT)
+                                </th>
+                                <th
+                                    style={{
+                                        border: "1px solid black",
+                                        padding: "8px",
+                                        width: "20%",
+                                        textAlign: "center",
+                                        fontWeight: "bold",
+                                    }}
+                                >
+                                    Cấp quản lý
+                                </th>
+                                <th
+                                    style={{
+                                        border: "1px solid black",
+                                        padding: "8px",
+                                        width: "25%",
+                                        textAlign: "center",
+                                        fontWeight: "bold",
+                                    }}
+                                >
+                                    Trách nhiệm tham gia
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {researches && researches.length > 0 ? (
+                                researches.map((item, index) => (
+                                    <tr key={index}>
+                                        <td
+                                            style={{
+                                                border: "1px solid black",
+                                                padding: "8px",
+                                                textAlign: "left",
+                                                verticalAlign: "top",
+                                            }}
+                                        >
+                                            {item.researchName}
+                                        </td>
+                                        <td
+                                            style={{
+                                                border: "1px solid black",
+                                                padding: "8px",
+                                                textAlign: "center",
+                                                verticalAlign: "top",
+                                            }}
+                                        >
+                                            {item.startYear} -{" "}
+                                            {item.endYear || "Nay"}
+                                        </td>
+                                        <td
+                                            style={{
+                                                border: "1px solid black",
+                                                padding: "8px",
+                                                textAlign: "center",
+                                                verticalAlign: "top",
+                                            }}
+                                        >
+                                            {item.researchLevel}
+                                        </td>
+                                        <td
+                                            style={{
+                                                border: "1px solid black",
+                                                padding: "8px",
+                                                textAlign: "left",
+                                                verticalAlign: "top",
+                                            }}
+                                        >
+                                            {/* Hiển thị tên vai trò từ API (roleInResearchName hoặc tương tự) */}
+                                            {item.roleInResearchName ||
+                                                "Thành viên"}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td
+                                        colSpan="4"
+                                        style={{
+                                            border: "1px solid black",
+                                            padding: "15px",
+                                            textAlign: "center",
+                                            fontStyle: "italic",
+                                        }}
+                                    >
+                                        Chưa có dữ liệu nghiên cứu khoa học
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
                 {/* CHỮ KÝ */}
                 <div
                     className="resume-section"
@@ -534,7 +690,7 @@ const ResumeExport = () => {
                     </div>
                     <div style={{ textAlign: "center" }}>
                         <p style={{ fontStyle: "italic" }}>
-                            ......, ngày {new Date().getDate()} tháng{" "}
+                            Đồng Nai, ngày {new Date().getDate()} tháng{" "}
                             {new Date().getMonth() + 1} năm{" "}
                             {new Date().getFullYear()}
                         </p>

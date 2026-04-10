@@ -3,67 +3,84 @@ import axiosClient from "../axios/axiosClient";
 
 export const useLanguageData = (initialData, staffId) => {
     const [languages, setLanguages] = useState([]);
+    const [allLanguages, setAllLanguages] = useState([]); // THÊM: Danh mục cho Dropdown
 
-    // Đồng bộ dữ liệu từ API đổ vào State
+    // 1. Đồng bộ dữ liệu ban đầu của Staff
     useEffect(() => {
         if (initialData && initialData.length > 0) {
             setLanguages(initialData);
         }
     }, [initialData]);
 
-    // 1. Xử lý thay đổi input
+    // 2. Fetch danh mục ngôn ngữ để đổ vào Dropdown
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const res = await axiosClient.get("/Language/GetAll"); // Kiểm tra URL này nhé
+                setAllLanguages(res.data.data || []);
+            } catch (err) {
+                console.error("Lỗi lấy danh mục ngôn ngữ:", err);
+            }
+        };
+        fetchCategories();
+    }, []);
+
+    // 3. Xử lý thay đổi input (Cập nhật để ép kiểu số cho languageId)
     const handleLanguageChange = (index, e) => {
         const { name, value } = e.target;
         const updated = [...languages];
+
+        let finalValue = value === "" ? null : value;
+        // Nếu là chọn từ Dropdown, ép kiểu sang Number để Backend nhận đúng int
+        if (name === "languageId" && finalValue !== null) {
+            finalValue = Number(finalValue);
+        }
+
         updated[index] = {
             ...updated[index],
-            [name]: value === "" ? null : value,
+            [name]: finalValue,
         };
         setLanguages(updated);
     };
 
-    // 2. Thêm một dòng ngoại ngữ mới
+    // 4. Thêm một dòng ngoại ngữ mới (Sửa languageName thành languageId)
     const addLanguage = () => {
-        const newLang = {
-            id: 0, // Để handleSubmit gọi POST
-            staffId: parseInt(staffId),
-            languageName: "",
-            proficiencyLevel: "",
-            notes: "",
-        };
-        setLanguages([...languages, newLang]);
+        setLanguages([
+            ...languages,
+            {
+                id: 0,
+                staffId: Number(staffId),
+                languageId: null, // Dùng ID để map với Dropdown
+                proficiencyLevel: "",
+                notes: "",
+                status: 1,
+            },
+        ]);
     };
 
-    // 3. Xóa một dòng ngoại ngữ
+    // 5. Xóa ngoại ngữ (Giữ nguyên logic của Trí)
     const removeLanguage = async (index) => {
-        // 1. Lấy thông tin bản ghi ngoại ngữ dựa trên index
         const langItem = languages[index];
-
-        // 2. Xác nhận với người dùng
         if (!window.confirm("Bạn có chắc muốn xoá thông tin ngoại ngữ này?"))
             return;
 
         try {
-            // 3. Nếu ID > 0 (Dữ liệu đã nằm trong DB) thì gọi API Delete luôn
             if (langItem.id && langItem.id !== 0) {
-                // Thay đổi đường dẫn API cho đúng với Backend của Trí nhé
-                await axiosClient.delete(`/Language/Delete?id=${langItem.id}`);
+                // Nhớ đổi thành StaffLanguage nếu Trí đã đổi tên Controller ở Backend
+                await axiosClient.delete(
+                    `/StaffLanguage/Delete?id=${langItem.id}`,
+                );
             }
-
-            // 4. Xóa khỏi State UI (Cái này luôn chạy dù là hàng mới hay hàng cũ)
-            const updated = languages.filter((_, i) => i !== index);
-            setLanguages(updated);
-
-            return { success: true };
+            setLanguages(languages.filter((_, i) => i !== index));
         } catch (error) {
-            console.error("Lỗi xóa ngoại ngữ:", error);
-            alert("Xoá ngoại ngữ thất bại!");
-            return { success: false };
+            console.error("Lỗi xóa:", error);
+            alert("Xoá thất bại!");
         }
     };
 
     return {
         languages,
+        allLanguages, // TRẢ VỀ: Để Update.jsx không bị lỗi undefined
         handleLanguageChange,
         addLanguage,
         removeLanguage,
